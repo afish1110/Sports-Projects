@@ -1,0 +1,170 @@
+---
+title: "ScrapePitcherData-Statcast"
+author: "Andrew Fish"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+##laoding packages
+library(shiny)
+library(tidyverse)
+library(Lahman)
+library(baseballr)
+library(readr)
+library(ggrepel)
+```
+
+All code for scraping statcast was repurposed from a project I did scraping batter data
+
+```{r}
+##scrapes a month with defined start date so only getting regular season data
+scrapeStatcastFirstmonth <- function(year, month, start_date) {
+  if (month == 4) {
+    scrape1 <- scrape_statcast_savant_pitcher_all(start_date,
+                                             paste(as.character(year), "-0", as.character(month), "-07", sep = ""))
+    
+    scrape2 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-08", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-14", sep = ""))
+    
+    scrape3 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-15", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-21", sep = ""))
+    
+    scrape4 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-22", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-28", sep = ""))
+    
+    scrape5 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-29", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-30", sep = ""))
+    
+    statcastScrape <- rbind(scrape1, scrape2, scrape3, scrape4, scrape5)
+  }
+  if (month == 3) {
+    start_date %>% strsplit("-") -> split_date
+    day <- as.numeric(split_date[[1]][3])
+    if (30 - day < 7) {
+      statcastScrape <- scrape_statcast_savant_pitcher_all(start_date, paste(as.character(year), "-0",
+                                                                             as.character(month), "-30", sep = ""))
+    }
+    else if ((30 - day <14) & (30 - day >= 7)) {
+      scrape1 <- scrape_statcast_savant_pitcher_all(start_date,
+                                               paste(as.character(year), "-0", as.character(month), "-23", sep = ""))
+      
+      scrape2 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-24", sep = ""),
+                                               paste(as.character(year), "-0", as.character(month), "-30", sep = ""))
+      statcastScrape <- rbind(scrape1, scrape2)
+    }
+  }
+  return(statcastScrape)
+}
+```
+
+```{r}
+##scrapes month with end date so only getting regular season data
+scrapeStatcastLastmonth <- function(year, month, end_date) {
+  if (month == 9) {
+    scrape1 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-01", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-07", sep = ""))
+    
+    scrape2 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-08", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-14", sep = ""))
+    
+    scrape3 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-15", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-21", sep = ""))
+    
+    scrape4 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-22", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-28", sep = ""))
+    
+    scrape5 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-29", sep = ""),
+                                             end_date)
+    
+    statcastScrape <- rbind(scrape1, scrape2, scrape3, scrape4, scrape5)
+  }
+  if (month == 10) {
+    statcastScrape <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-", as.character(month),
+                                                               "-01", sep = ""), end_date)
+    
+  }
+  return(statcastScrape)
+}
+```
+
+```{r}
+##scrapes 1 month worth of statcast data use if statements to help generalize format since assuming not inputting correct format
+scrapeStatcastmonth <- function(year, month){
+  if (month < 10) {
+    scrape1 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-01", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-07", sep = ""))
+    
+    scrape2 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-08", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-14", sep = ""))
+    
+    scrape3 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-15", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-21", sep = ""))
+    
+    scrape4 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-22", sep = ""),
+                                             paste(as.character(year), "-0", as.character(month), "-28", sep = ""))
+    
+    if (month %in% c(3, 5, 7, 8)) {
+      scrape5 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-29", sep = ""),
+                                               paste(as.character(year), "-0", as.character(month), "-31", sep = ""))
+    }
+    else if (month %in% c(4, 6, 9)) {
+      scrape5 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-0", as.character(month), "-29", sep = ""),
+                                               paste(as.character(year), "-0", as.character(month), "-30", sep = ""))
+    }
+  }
+  else if (month == 10) {
+    scrape1 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-", as.character(month), "-01", sep = ""),
+                                             paste(as.character(year), "-", as.character(month), "-07", sep = ""))
+    
+    scrape2 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-", as.character(month), "-08", sep = ""),
+                                             paste(as.character(year), "-", as.character(month), "-14", sep = ""))
+    
+    scrape3 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-", as.character(month), "-15", sep = ""),
+                                             paste(as.character(year), "-", as.character(month), "-21", sep = ""))
+    
+    scrape4 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-", as.character(month), "-22", sep = ""),
+                                             paste(as.character(year), "-", as.character(month), "-28", sep = ""))
+    
+    scrape5 <- scrape_statcast_savant_pitcher_all(paste(as.character(year), "-", as.character(month), "-29", sep = ""),
+                                             paste(as.character(year), "-", as.character(month), "-30", sep = ""))
+  }
+  statcastScrape <- rbind(scrape1, scrape2, scrape3, scrape4, scrape5)
+  return(statcastScrape)
+}
+```
+
+```{r}
+#scrapes full year by calling month function in loop
+scrapeStatcastyear <- function(year, month, year_start, year_end){
+  for (i in 1:length(month)) {
+    Sys.sleep(5)
+    if (i == 1) {
+      yearScrape <- scrapeStatcastFirstmonth(year, month[i], year_start)
+    }
+    else if (i == length(month)) {
+      holderScrape <- scrapeStatcastLastmonth(year, month[i], year_end)
+      yearScrape %>% bind_rows(holderScrape) -> yearScrape
+    }
+    else {
+      holderScrape <- scrapeStatcastmonth(year, month[i])
+      yearScrape %>% bind_rows(holderScrape) -> yearScrape
+    }
+  }
+  return(yearScrape)
+}
+```
+
+```{r}
+##scraping all of 2024 from statcast got dates from baseball reference schedule
+pitcherdata2024 <- scrapeStatcastyear(2024, c(3:9), "2024-03-28", "2024-09-30")
+```
+
+```{r}
+write_csv(pitcherdata2024, "StatcastPitcherData2024.csv")
+```
+
