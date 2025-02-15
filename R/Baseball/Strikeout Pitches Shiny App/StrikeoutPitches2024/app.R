@@ -55,12 +55,14 @@ ui <- fluidPage(
     # Application title
     titlePanel('Strikeout Pitches During the 2024 MLB Season'),
     sidebarLayout(
+      ##pitcher selection drop down using all pitchers that pitched in data
       sidebarPanel(position = 'left',
                    selectInput(inputId = 'selectPitcher',
                                label = h3("Pitcher"),
                                choices = possiblePitchersList,
                                selected = 807799)
       ),
+      ##swing check box allows for yes or no
       sidebarPanel(position = 'right',
                    checkboxGroupInput(inputId = 'swings',
                                       label = h3('Swing'),
@@ -75,14 +77,17 @@ ui <- fluidPage(
 
 
 server <- function(input, output) {
+  ##filters pitcher selection
   SelectedPitcherReactive <- reactive({
     strikeout_pitches %>% filter(pitcher == input$selectPitcher)
   })
   
+  ##filters for swing yes/no selection
   output$strikeoutPitchChart <- renderPlot({
     SelectedPitcherReactive() %>%
       filter(swing %in% input$swings) -> selectedSwings
     
+    ##plots using the strikezone format above and color as the pitch type
     k_zone_plot %+% selectedSwings +
       aes(color = pitch_name) +
       geom_point() + 
