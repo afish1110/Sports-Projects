@@ -60,7 +60,8 @@ ui <- fluidPage(
                    selectInput(inputId = 'selectPitcher',
                                label = h3("Pitcher"),
                                choices = possiblePitchersList,
-                               selected = 807799)
+                               ##Chris Sale
+                               selected = 519242)
       ),
       ##swing check box allows for yes or no
       sidebarPanel(position = 'right',
@@ -82,15 +83,16 @@ server <- function(input, output) {
     strikeout_pitches %>% filter(pitcher == input$selectPitcher)
   })
   
-  ##filters for swing yes/no selection
+  ##filters for swing yes/no selection and creates plot
+  
   output$strikeoutPitchChart <- renderPlot({
     SelectedPitcherReactive() %>%
       filter(swing %in% input$swings) -> selectedSwings
     
-    ##plots using the strikezone format above and color as the pitch type
+    ##plots using the strikezone format above, color as the pitch type, and swing as shape creates scatter plot
     k_zone_plot %+% selectedSwings +
-      aes(color = pitch_name) +
-      geom_point() + 
+      aes(color = pitch_name, shape = swing) +
+      geom_point(size = 2.5) + 
       ggtitle('Strikeout Pitches')
   })
   
