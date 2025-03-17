@@ -1,0 +1,218 @@
+---
+title: "March Madness Project"
+author: "Andrew Fish"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(readr)
+```
+
+```{r}
+##function to get the seeds from the html data
+get_seeds <- function(data){
+  ##empty vector/list to add to later
+  seeds <- c()
+  
+  ##loops through the data checking for numbers then adds to list if number
+  for (i in 1:length(data)){
+    if (is.na(as.numeric(data[i])) == FALSE){
+      append(seeds, as.numeric(data[i])) -> seeds
+    }
+  }
+  return(seeds)
+}
+```
+
+```{r}
+##function to get scores from html data
+get_scores <- function(data){
+  
+  scores <- c()
+  
+  ##loops through the data checking for numbers then adds to list if number
+  for (i in 1:length(data)){
+    if (is.na(as.numeric(data[i])) == FALSE){
+      append(scores, as.numeric(data[i])) -> scores
+    }
+  }
+  return(scores)
+}
+```
+
+```{r}
+get_teams <- function(data){
+  
+  ##empty vector
+  teams <- c()
+  
+  ##to pull teams need to have if statement with the other requirements and use next to not do anything then can add the leftovers to teams
+  for (i in 1:length(data)){
+    if (substr(data[i], 1, 3) == 'at '){
+      next
+    }
+    else if (is.na(as.numeric(data[i])) == FALSE){
+      next
+    }
+    else {
+      append(teams, data[i]) -> teams
+    }
+  }
+  return(teams)
+}
+```
+
+```{r}
+get_rounds <- function(data, region){
+  rounds <- c()
+  ##splits natty and regions because different rounds in each
+  if (region == 'national') {
+    for (i in 1:length(data)){
+      if (i <=4){
+        ##Final Four
+        append(rounds, 5) -> rounds
+      }
+      else{
+        ##National Championship
+        append(rounds, 6) -> rounds
+      }
+    }
+  }
+  else{
+    for (i in 1:length(data)){
+      if (i <= 16){
+        ##First Round
+        append(rounds, 1) -> rounds
+      }
+      else if ((16 < i) & (i <= 24)){
+        ##Second Round
+        append(rounds, 2) -> rounds
+      }
+      else if ((24 < i) & (i <= 28)){
+        ##Sweet 16
+        append(rounds, 3) -> rounds
+      }
+      else{
+        ##Elite 8
+        append(rounds, 4) -> rounds
+      }
+    }  
+  }
+  return(rounds)
+}
+```
+
+
+```{r}
+##region must be all lowercase as well must include national for final four
+scrapeTournamentRegion <- function(year, region){
+  
+  ##generic cbb reference url for march madness
+  url <- paste('https://www.sports-reference.com/cbb/postseason/men/', as.character(year), '-ncaa.html', sep = '')
+  webpage <- read_html(url)
+  
+  ##scrapes the team name and score data and removes last element because winner of region isn't necessary
+  webpage %>% html_nodes(paste('div#', as.character(region), ' div#bracket div.round a', sep = '')) %>% html_text() -> boxscore_data
+  head(boxscore_data, -1) -> boxscore_data
+  
+  ##scrapes seeds and removes last element because again don't need info on winner of region
+  webpage %>% html_nodes(paste('div#', as.character(region), ' div#bracket div.round span', sep = '')) %>% html_text() -> seed_data
+  head(seed_data, -1) -> seed_data
+  
+  seeds <- get_seeds(seed_data)
+  teams <- get_teams(boxscore_data)
+  scores <- get_scores(boxscore_data)
+  
+  #for the rounds can use any of the 3 sorted data above, region is important part
+  rounds <- get_rounds(seeds, region)
+  
+  bracket_region <- data.frame(
+    'Seed' = seeds,
+    'Team' = teams,
+    'Score' = scores,
+    'Round' = rounds,
+    'Region' = region)
+  
+  return(bracket_region)
+}
+```
+
+```{r}
+scrapeTournamentYear <- function(year){
+  
+  ##for the year just need to call all of the regions and combine the tibbles into one
+  east <- scrapeTournamentRegion(year, 'east')
+  west <- scrapeTournamentRegion(year, 'west')
+  midwest <- scrapeTournamentRegion(year, 'midwest')
+  south <- scrapeTournamentRegion(year, 'south')
+  national <- scrapeTournamentRegion(year, 'national')
+  
+  ##combines all regions of bracket
+  tournament <- bind_rows(east, west, midwest, south, national)
+  tournament$Year <- year
+  return(tournament)
+}
+```
+
+```{r}
+formatTournamentYear <- function(year){
+  tourney <- scrapeTournamentYear(year)
+  
+  #empty lists for formating df top/bottom referring to the position on the bracket for the matchup
+  top_seed <- c()
+  top_team <- c()
+  top_score <- c()
+  top_region <- c()
+  
+  
+  bottom_seed <- c()
+  bottom_team <- c()
+  bottom_score <- c()
+  bottom_region <- c()
+  
+  rounds <- c()
+  
+  for (i in 1:length(tourney$Seed)){
+    ##if even meaning the bottom team on the bracket matchup
+    if (i %% 2 == 0){
+      append(bottom_seed, tourney$Seed[i]) -> bottom_seed
+      append(bottom_team, tourney$Team[i]) -> bottom_team
+      append(bottom_score, tourney$Score[i]) -> bottom_score
+      append(bottom_region, tourney$Region[i]) -> bottom_region
+      append(rounds, tourney$Round[i]) -> rounds
+    }  
+    ##odd meaning top team
+    else{
+      append(top_seed, tourney$Seed[i]) -> top_seed
+      append(top_team, tourney$Team[i]) -> top_team
+      append(top_score, tourney$Score[i]) -> top_score
+      append(top_region, tourney$Region[i]) -> top_region
+    }
+  }
+  ##new df with proper format where each row will read top info bottom info
+  format_tourney <- data.frame(
+    'Top Seed' = top_seed,
+    'Top Team' = top_team,
+    'Top Score' = top_score,
+    'Top Region' = top_region,
+    'Bottom Seed' = bottom_seed,
+    'Bottom Team' = bottom_team,
+    'Bottom Score' = bottom_score,
+    'Bottom Region' = bottom_region,
+    'Round' = rounds)
+  
+  return(format_tourney)
+}
+```
+
+```{r}
+tourney_2024 <- formatTournamentYear(2024)
+```
+
