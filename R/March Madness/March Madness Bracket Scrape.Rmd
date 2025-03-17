@@ -48,6 +48,7 @@ get_scores <- function(data){
 ```
 
 ```{r}
+##helper function for grabing teams from the scrapped data
 get_teams <- function(data){
   
   ##empty vector
@@ -70,6 +71,7 @@ get_teams <- function(data){
 ```
 
 ```{r}
+##puts rounds of the tournament with the correct rows
 get_rounds <- function(data, region){
   rounds <- c()
   ##splits natty and regions because different rounds in each
@@ -145,6 +147,7 @@ scrapeTournamentRegion <- function(year, region){
 ```
 
 ```{r}
+#takes the regional scrapes and combines into one year
 scrapeTournamentYear <- function(year){
   
   ##for the year just need to call all of the regions and combine the tibbles into one
@@ -162,6 +165,7 @@ scrapeTournamentYear <- function(year){
 ```
 
 ```{r}
+##formats the bracket data into the matchups
 formatTournamentYear <- function(year){
   tourney <- scrapeTournamentYear(year)
   
